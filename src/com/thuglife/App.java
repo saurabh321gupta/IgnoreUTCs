@@ -36,20 +36,23 @@ public class App {
         JPanel panel = new JPanel(new BorderLayout());
         panel.add(scroll, BorderLayout.CENTER);
         JButton ignoreButton = new JButton("Ignore!!!!!");
+        JCheckBox e2e = new JCheckBox("E2E");
         ignoreButton.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
                 try {
                     String input = codearea.getText();
+                    boolean isE2e = e2e.isSelected();
                     if (input == null || input.trim() == "" || DEFAULT_PATH == null)
                         return;
-                    doIt(input);
-                    showMessageAndExit(count + " UTCs ignored successfully!");
+                    doIt(input, isE2e);
+                    showMessageAndExit(count +" "+ (isE2e? "E2Es":"UTCs") + " ignored successfully!");
                 } catch (IOException ex) {
                     ex.printStackTrace();
                 }
             }
         });
+        panel.add(e2e, BorderLayout.NORTH);
         panel.add(ignoreButton, BorderLayout.SOUTH);
 
         frame.getContentPane().add(panel);
@@ -58,8 +61,8 @@ public class App {
         frame.setVisible(true);
     }
 
-    public static void doIt(String input) throws IOException {
-        Map<String, List<String>> map = getMap(input);
+    public static void doIt(String input, boolean isE2e) throws IOException {
+        Map<String, List<String>> map = isE2e ? getMapForE2es(input) : getMapForUtcs(input);
         for (Map.Entry<String, List<String>> entry : map.entrySet()) {
             String fileName = entry.getKey();
             File f = new File(DEFAULT_PATH + fileName);
@@ -93,7 +96,31 @@ public class App {
         System.exit(0);
     }
 
-    public static Map<String, List<String>> getMap(String input) {
+    private static Map<String, List<String>> getMapForE2es(String input) {
+        Map<String, List<String>> map = new HashMap<>();
+        String lines[] = input.split("\\r?\\n");
+        for (String str : lines) {
+            int index = str.indexOf("ServiceTests.");
+            int index2 = str.indexOf("FAILED");
+            if (index != -1 && index2 != -1) {
+                String strArr[] = str.split("\\s");
+                String className = strArr[0];
+                String testCaseName = strArr[2];
+                String fileName = prepareFileLocation(className);
+                List<String> testCases = map.get(fileName);
+                if (testCases != null) {
+                    testCases.add(testCaseName);
+                } else {
+                    map.put(fileName, new ArrayList() {{
+                        add(testCaseName);
+                    }});
+                }
+            }
+        }
+        return map;
+    }
+
+    public static Map<String, List<String>> getMapForUtcs(String input) {
         Map<String, List<String>> map = new HashMap<>();
         String lines[] = input.split("\\r?\\n");
         for (String str : lines) {
